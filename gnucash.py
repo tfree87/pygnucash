@@ -103,13 +103,15 @@ def read_file(filename):
 		trans.post_date = parse_time(post_date)
 		trans.description = description
 
-	for row in c.execute('SELECT guid, tx_guid, account_guid, value_num, value_denom, quantity_num, quantity_denom FROM splits'):
+	for row in c.execute('SELECT guid, tx_guid, account_guid, memo, reconcile_state, value_num, value_denom, quantity_num, quantity_denom FROM splits'):
 		guid,tx_guid,account_guid,value_num,value_denom,quantity_num,quantity_denom = row
 		split = get_split(data, guid)
 		split.transaction = get_transaction(data, tx_guid)
 		split.transaction.splits.append(split)
 		split.account = get_account(data, account_guid)
 		split.account.splits.append(split)
+		split.memo=memo
+                split.reconcile_state=reconcile_state
 		split.value_num = int(value_num)
 		split.value_denom = int(value_denom)
 		split.value = float(value_num)/float(value_denom)
