@@ -13,7 +13,10 @@ def format_commodity(commodity):
 	mnemonic = commodity.mnemonic
 	try:
 		if mnemonic.encode('ascii').isalpha():
-			return mnemonic
+			if mnemonic == "USD":
+                                return "$"
+                        else:
+                                return mnemonic
 	except:
 		pass
 	return "\"%s\"" % mnemonic # TODO: escape " char in mnemonic
@@ -71,8 +74,13 @@ for trans in transactions:
                         state=""
 		out.write("\t%s %-40s " % (state,full_acc_name(split.account)))
 		if split.account.commodity != trans.currency:
-			out.write("%10.2f %s @ %.2f %s\t; %s" % (split.quantity, format_commodity(split.account.commodity), abs(split.value), format_commodity(trans.currency), split.memo))
-		else:
-			out.write("%10.2f %s\t; %s" % (split.value, format_commodity(trans.currency), split.memo))
+                        if format_commodity(trans.currency) == "$":
+                                out.write("\t{0:0.2f} {1} @ ${2:0.2f}\t; {3}".format(split.quantity, format_commodity(split.account.commodity), abs(split.value), split.memo))
+                        else:
+                                out.write("\t{0:0.2f} {1} @ {2:0.2f} {3}\t; {4}".format(split.quantity, format_commodity(split.account.commodity), abs(split.value), format_commodity(trans.currency), split.memo))
+                elif format_commodity(split.account.commodity) == "$":
+                        out.write("\t${0:0.2f}\t; {1}".format(split.value, split.memo))
+                else:
+                	out.write("{0:0.2f} {1}\t; {2}".format(split.value, format_commodity(trans.currency), split.memo))
 		out.write("\n")
 	out.write("\n")
