@@ -75,9 +75,9 @@ for trans in transactions:
 		out.write("\t%s %-40s " % (state,full_acc_name(split.account)))
 		if split.account.commodity != trans.currency:
                         if format_commodity(trans.currency) == "$":
-                                out.write("\t{0:0.2f} {1} @ ${2:0.2f}\t; {3}".format(split.quantity, format_commodity(split.account.commodity), abs(split.value), split.memo))
+                                out.write("\t{0:f} {1} @@ ${2:0.2f}\t; {3}".format(split.quantity, format_commodity(split.account.commodity), abs(split.value), split.memo))
                         else:
-                                out.write("\t{0:0.2f} {1} @ {2:0.2f} {3}\t; {4}".format(split.quantity, format_commodity(split.account.commodity), abs(split.value), format_commodity(trans.currency), split.memo))
+                                out.write("\t{0:f} {1} @@ {2:0.2f} {3}\t; {4}".format(split.quantity, format_commodity(split.account.commodity), abs(split.value), format_commodity(trans.currency), split.memo))
                 elif format_commodity(split.account.commodity) == "$":
                         out.write("\t${0:0.2f}\t; {1}".format(split.value, split.memo))
                 else:
