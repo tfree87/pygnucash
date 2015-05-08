@@ -1,4 +1,7 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
+
+"""Converts Gnucash 2.6 sqlite3 file data into Ledger text format"""
+
 import argparse
 import codecs
 import gnucash
@@ -113,17 +116,47 @@ def transactions_list():
     
 def parse_arguments():
 	"""Read arguments from the command line"""
-	parser = argparse.ArgumentParser()
-	parser.add_argument("filename", help="name of Gnucash file to read data from")
+	parser = argparse.ArgumentParser(description=__doc__)
+	parser.add_argument("FILENAME", help="name of Gnucash file to read data from")
+	parser.add_argument("-o", "--outfile", help="name of output file")
+	export_group = parser.add_mutually_exclusive_group()
+	export_group.add_argument("-a", "--export-accounts", help="export account information", action="store_true")
+	export_group.add_argument("-c", "--export-commodities", help="export commodity information only", action="store_true")
+	export_group.add_argument("-p", "--export-prices", help="export price data for commodities only", action="store_true")
+	export_group.add_argument("-t", "--export-transactions", help="export transaction list only", action="store_true")
 	args = parser.parse_args()
 	return args
+
+def ledger_string(args):
+	"""Creates a string containg the final output of the data in
+	Ledger format"""
+	temp = ";; -*- mode: ledger; -*-\n\n"
+	if args.export_prices:
+		temp += prices_list()
+	elif args.export_accounts:
+		temp += accounts_list()
+	elif args.export_commodities:
+		temp += commodities_list()
+	elif args.export_transactions:
+		temp += transactions_list()
+	else:
+		temp += prices_list()
+		temp += accounts_list()
+		temp += commodities_list()
+		temp += transactions_list()
+	return temp
+
+def write_ledger_file(args):
+	"""Writes the Ledger string to a file"""
+	file = open(args.outfile, "w")
+	file.write(ledger_string(args))
+	file.close()
 
 if __name__ == '__main__':
 	"""Executes Gnucash to Ledger export upon program call"""
 	args=parse_arguments()
-	data = gnucash.read_file(args.filename)
-	print(";; -*- mode: ledger; -*-\n\n")
-	print(commodities_list())
-	print(accounts_list())
-	print(prices_list())
-	print(transactions_list())
+	data = gnucash.read_file(args.FILENAME)
+	if args.outfile:
+		write_ledger_file(args)
+	else:
+		print(ledger_string(args))
