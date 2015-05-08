@@ -1,24 +1,22 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+#-*- coding: utf-8 -*-
 
 """Converts Gnucash 2.6 sqlite3 file data into Ledger text format"""
 
 import argparse
+from babel.numbers import format_currency
+from babel.numbers import get_currency_symbol
 import codecs
 import gnucash
 import sys
 
-def format_commodity(commodity):
-	"""Formats commodity name for Ledger output"""
-	mnemonic = commodity.mnemonic
-	try:
-		if mnemonic.encode('ascii').isalpha():
-			if mnemonic == "USD":
-				return "$"
-			else:
-				return mnemonic
-	except:
-		pass
-	return "\"%s\"" % mnemonic # TODO: escape " char in mnemonic
+def currency_string(value, currency):
+	"""Takes a value and currency code and uses babel
+	to properly format the currency into a localized string"""
+	if value < 0:
+		return "-" + format_currency(abs(value), currency)
+	else:
+	     return format_currency(abs(value), currency)
 
 def full_acc_name(acc):
 	"""Formats account names for Ledger output"""
@@ -31,13 +29,12 @@ def full_acc_name(acc):
 def commodities_list():
 	"""Returns a string with commodity information in Ledger format"""
 	temp = ""
-	"""Returns a string with commodities information in ledger format"""
 	commodities = data.commodities.values()
 	for commodity in commodities:
 		if commodity.mnemonic == "":
 			continue
-		temp += "commodity {}\n".format(format_commodity(commodity))
-		if commodity.fullname != "":
+		temp += "commodity {}\n".format(commodity)
+		if commodity.fullname:
 			temp += "\tnote {}\n".format(commodity.fullname)
 	temp += "\n"
 	return temp
@@ -55,9 +52,7 @@ def accounts_list():
 		temp += "account {}\n".format(full_acc_name(acc))
 		if acc.description:
 			temp+="\tnote {}\n".format(acc.description)
-		formated_commodity = format_commodity(acc.commodity)
-		formated_commodity = formated_commodity.replace("\"", "\\\"")
-		temp += "\tcheck commodity == \"{}\"\n".format(formated_commodity)
+		temp += "\tcheck commodity == \"{}\"\n".format(get_currency_symbol(str(acc.commodity)))
 		temp+="\n"
 	return temp
 
@@ -68,10 +63,7 @@ def prices_list():
 	prices = sorted(prices,key=lambda x:x.date)
 	for price in prices:
 		date = price.date.strftime("%Y-%m-%d %H:%M:%S")
-		if format_commodity(price.currency) == "$":
-			temp += "P {} {} {}{}\n".format(date, format_commodity(price.commodity), format_commodity(price.currency), price.value)
-		else:
-			temp += "P {} {} {} {}\n".format(date, format_commodity(price.commodity), price.value, format_commodity(price.currency))
+		temp += "P {} {} {}\n".format(date, price.commodity, format_currency(price.value, str(price.currency)))
 	temp += "\n"
 	return temp
 
@@ -85,28 +77,34 @@ def list_splits(trans):
 			temp +="\t! "
 		else:
 			temp += "\t"
-		temp += "{:40s}".format(full_acc_name(split.account))
+		temp += "{:60s}\t".format(full_acc_name(split.account))
 		if split.account.commodity != trans.currency:
-			if format_commodity(trans.currency) == "$":
-				temp += "\t{:f} {} @@ {}{:0.2f}".format(split.quantity, format_commodity(split.account.commodity), format_commodity(trans.currency), abs(split.value))
-			else:
-				temp += "\t{:f} {} @@ {:0.2f} {}".format(split.quantity, format_commodity(split.account.commodity), abs(split.value), format_commodity(trans.currency))
-		elif format_commodity(split.account.commodity) == "$":
-			temp += "\t{}{:0.2f}".format(format_commodity(trans.currency), split.value)
+			temp += "{:f} {} @@ {}".format(split.quantity, split.account.commodity, format_currency(split.value, str(trans.currency)))
 		else:
-			temp += "{0:0.2f} {1}".format(split.value, format_commodity(trans.currency))
+			temp += "{}".format(currency_string(split.value, str(trans.currency)))
 		if split.memo:
 			temp += "\t; {}".format(split.memo)
 		temp += "\n"
 	return temp
+
+def is_template(trans):
+        """Determines if the splits in the transaction are templates"""
+	for split in trans.splits:
+		if str(split.account.commodity) == 'template':
+			return True
+		else:
+			return False
 	
 def transactions_list():
 	"""Returns a string containing transactions with splits in ledger format"""
-	temp = ""
+	temp = str()
 	transactions = data.transactions.values()
 	transactions = sorted(transactions, key=lambda x: x.post_date)
 	for trans in transactions:
 		date = trans.post_date.strftime("%Y-%m-%d")
+                #Skip template transactions
+		if is_template(trans):
+			continue
 		if not trans.num:
 			temp += "{} {}\n".format(date, trans.description)
 		else:
@@ -120,7 +118,7 @@ def parse_arguments():
 	parser.add_argument("FILENAME", help="name of Gnucash file to read data from")
 	parser.add_argument("-o", "--outfile", help="name of output file")
 	export_group = parser.add_mutually_exclusive_group()
-	export_group.add_argument("-a", "--export-accounts", help="export account information", action="store_true")
+	export_group.add_argument("-a", "--export-accounts", help="export account information only", action="store_true")
 	export_group.add_argument("-c", "--export-commodities", help="export commodity information only", action="store_true")
 	export_group.add_argument("-p", "--export-prices", help="export price data for commodities only", action="store_true")
 	export_group.add_argument("-t", "--export-transactions", help="export transaction list only", action="store_true")
@@ -148,7 +146,7 @@ def ledger_string(args):
 
 def write_ledger_file(args):
 	"""Writes the Ledger string to a file"""
-	file = open(args.outfile, "w")
+	file = codecs.open(args.outfile, "w", "utf-8")
 	file.write(ledger_string(args))
 	file.close()
 
@@ -160,3 +158,5 @@ if __name__ == '__main__':
 		write_ledger_file(args)
 	else:
 		print(ledger_string(args))
+
+		
