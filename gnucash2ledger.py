@@ -5,9 +5,7 @@
 import argparse
 from babel.numbers import format_currency
 from babel.numbers import get_currency_symbol
-import codecs
 import gnucash
-import sys
 
 def currency_string(value, currency):
     """Takes a value and currency code and uses babel
@@ -40,7 +38,7 @@ def commodities_list():
 
 def accounts_list():
     """Returns a string with account information in ledger format"""
-    temp=""
+    temp = ""
     accounts = data.accounts.values()
     for acc in accounts:
         #Ignore "dummy" accounts
@@ -54,13 +52,13 @@ def accounts_list():
             temp+="\tnote {}\n".format(acc.description)
         temp += "\tcheck commodity == \"{}\"\n".format(get_currency_symbol(
             str(acc.commodity)))
-        temp+="\n"
+        temp += "\n"
     return temp
 
 def prices_list():
     """Returns a string containing commodity prices to data file in ledger
     format"""
-    temp=""
+    temp = ""
     prices = data.prices.values()
     prices = sorted(prices,key=lambda x:x.date)
     for price in prices:
@@ -137,8 +135,12 @@ def parse_arguments():
     parser.add_argument("-s", "--posting-cost",
                         help="print complete posting cost for a commodity \
                         (i.e. total cost of the commodies) transaction using \
-                        \"QUANTITY @@ POSTING COST\" rather than per-unit cost \
-                        using \"QUANTITY @ UNIT PRICE\"",
+                        'QUANTITY @@ POSTING COST' rather than per-unit cost \
+                        using 'QUANTITY @ UNIT PRICE'",
+                        action="store_true")
+    parser.add_argument("-x", "--clobber",
+                        help="overwrite destination file if it already exists \
+                        without throwing an error",
                         action="store_true")
     export_group = parser.add_mutually_exclusive_group()
     export_group.add_argument("-a", "--export-accounts",
@@ -176,18 +178,36 @@ def ledger_string():
 
 def write_ledger_file():
     """Writes the Ledger string to a file"""
-    file = codecs.open(args.outfile, "w", "utf-8")
-    file.write(ledger_string())
-    file.close()
+    if args.clobber == True:
+        file_descriptor = open(args.outfile, "w", encoding="utf-8")
+        file_descriptor.write(ledger_string())
+        file_descriptor.close()
+    else:
+        file_descriptor = ""
+        try:
+            file_descriptor = open(args.outfile, "x")
+            file_descriptor.close()
+        except FileExistsError:
+            temp = "File {} already exists, overwrite with '-x' option".format(
+                args.outfile)
+            print(temp)
+            return
+        file_descriptor = open(args.outfile, "w")
+        file_descriptor.write(ledger_string())
+        file_descriptor.close()
+            
 
 def main():
+    """Exports Gnucash data to Ledger format"""
     if args.outfile:
         write_ledger_file()
     else:
         print(ledger_string())
+        
     
 if __name__ == '__main__':
-    """Executes Gnucash to Ledger export upon program call"""
+    """Reads command line arguments, converts data from Gnucash file to global
+    variable, and calls the main function"""
     args = parse_arguments()
     data = gnucash.read_file(args.FILENAME)
     main()
